@@ -1,10 +1,9 @@
 import streamlit as st
 import subprocess
 # import ollama
-import os
-import dotenv
 import re
 from datetime import datetime
+import os
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -16,8 +15,6 @@ client = OpenAI(
     api_key = NRP_API_KEY,
     base_url = "https://llm.nrp-nautilus.io/"
 )
-
-# completion = 
 
 # System prompt that the chatbot will never forget
 SYSTEM_PROMPT = """
@@ -303,8 +300,125 @@ The following exist but must never be suggested:
 4. Never output admin commands or destructive operations.
 5. Do not explain or add extra commentary—output only the command.
 
-Always remember our conversation history and maintain context throughout our discussion.
+Always remember our conversation history and maintain context throughout our discussion. Feel free to use terminal commands
+to better serve the user, but ensure they are valid Redbiom and CLI commands.
 """
+
+def format_and_display_output(output, key_suffix):
+    """Format and display command output in a more readable way"""
+    
+    # Check if output looks like tabular data (TSV/CSV)
+    lines = output.strip().split('\n')
+    
+    # If it looks like a table (has tabs or multiple consistent separators)
+    if len(lines) > 1 and ('\t' in output or ',' in output):
+        try:
+            # Try to detect if it's tab-separated
+            if '\t' in lines[0]:
+                # Parse as TSV
+                headers = lines[0].split('\t')
+                data = []
+                for line in lines[1:]:
+                    if line.strip():  # Skip empty lines
+                        data.append(line.split('\t'))
+                
+                # Display as a nice table
+                if data and len(data[0]) == len(headers):
+                    st.markdown("**📋 Formatted Output:**")
+                    
+                    # Create a dataframe for better display
+                    import pandas as pd
+                    df = pd.DataFrame(data, columns=headers)
+                    st.dataframe(df, use_container_width=True)
+                    
+                    # Show summary stats
+                    st.markdown(f"**📊 Summary:** {len(data)} rows, {len(headers)} columns")
+                    
+                    # Also show raw output in expandable section
+                    with st.expander("🔍 View Raw Output"):
+                        st.code(output, language='text')
+                    return
+            
+            # Try comma-separated if tab didn't work
+            elif ',' in lines[0] and len(lines[0].split(',')) > 2:
+                headers = lines[0].split(',')
+                data = []
+                for line in lines[1:]:
+                    if line.strip():
+                        data.append(line.split(','))
+                
+                if data and len(data[0]) == len(headers):
+                    st.markdown("**📋 Formatted Output:**")
+                    import pandas as pd
+                    df = pd.DataFrame(data, columns=headers)
+                    st.dataframe(df, use_container_width=True)
+                    st.markdown(f"**📊 Summary:** {len(data)} rows, {len(headers)} columns")
+                    
+                    with st.expander("🔍 View Raw Output"):
+                        st.code(output, language='text')
+                    return
+                    
+        except Exception as e:
+            # If parsing fails, fall back to raw display
+            pass
+    
+    # Check if it's a simple list (one item per line)
+    elif len(lines) > 3 and all(len(line.strip()) > 0 for line in lines[:10]):
+        st.markdown("**📋 Output List:**")
+        
+        # Show first few items with numbering
+        display_limit = min(20, len(lines))
+        for i, line in enumerate(lines[:display_limit], 1):
+            if line.strip():
+                st.markdown(f"{i}. `{line.strip()}`")
+        
+        if len(lines) > display_limit:
+            st.markdown(f"*... and {len(lines) - display_limit} more items*")
+            
+        st.markdown(f"**📊 Summary:** {len([l for l in lines if l.strip()])} items total")
+        
+        # Show raw output in expandable section
+        with st.expander("🔍 View Raw Output"):
+            st.code(output, language='text')
+        return
+    
+    # Check if it's JSON-like output
+    elif output.strip().startswith('{') or output.strip().startswith('['):
+        try:
+            import json
+            parsed = json.loads(output)
+            st.markdown("**📋 JSON Output:**")
+            st.json(parsed)
+            
+            with st.expander("🔍 View Raw Output"):
+                st.code(output, language='json')
+            return
+        except:
+            pass
+    
+    # For short outputs, display nicely formatted
+    if len(lines) <= 10 and len(output) < 1000:
+        st.markdown("**📋 Output:**")
+        if len(lines) == 1:
+            # Single line output
+            st.code(output.strip(), language='text')
+        else:
+            # Multi-line but short output
+            for line in lines:
+                if line.strip():
+                    st.markdown(f"• `{line.strip()}`")
+    else:
+        # Large output - show in scrollable text area
+        st.markdown("**📋 Output:**")
+        st.text_area(
+            f"Large output ({len(lines)} lines):", 
+            output, 
+            height=300,
+            key=f"formatted_output_{key_suffix}"
+        )
+        
+        # Show summary
+        st.markdown(f"**📊 Summary:** {len(lines)} lines, {len(output)} characters")
 
 def clean_qwen_output(text):
     """Remove thinking tokens and other unwanted content from Qwen output"""
@@ -354,12 +468,12 @@ def generate_command(user_query):
     messages.append({"role": "user", "content": user_query})
     
     try:
-        llama_response = ollama.chat(
-            model='qwen3:14b-q4_K_M',
-            messages=messages
+        llama_response = client.chat.completions.create(
+            model="qwen3",
+            messages=messages,
         )
         
-        raw_command = llama_response['message']['content']
+        raw_command = llama_response.choices[0].message.content
         cleaned_command = clean_qwen_output(raw_command)
         
         return cleaned_command
@@ -446,13 +560,37 @@ def main():
     
     with col2:
         st.subheader("ℹ️ Context Info")
-        st.info("""
-        **Common contexts:**
-        - `Deblur-NA-Illumina-16S-v4-90nt-99d1d8`
-        - `Deblur_2021.09`
         
-        **Tip:** Use `redbiom summarize contexts` to see all available contexts.
+        # Show available contexts from the uploaded data
+        with st.expander("📚 Available Contexts", expanded=False):
+            contexts_info = """
+            **Most Popular Contexts:**
+            • `Deblur_2021.09-Illumina-16S-V4-125nt-92f954` (33,680 samples)
+            • `Woltka-KEGG-Ontology-WoLr2-7dd29a` (51,036 samples) 
+            • `Deblur_2021.09-Illumina-16S-V4-200nt-0b8b48` (11,159 samples)
+            • `Pick_closed-reference_OTUs-Greengenes-Illumina-16S-V4-200nt-a5e305` (9,231 samples)
+            
+            **By Data Type:**
+            • **16S rRNA:** Deblur_2021.09-*, Pick_closed-reference_OTUs-Greengenes-*
+            • **18S rRNA:** Deblur_2021.09-Illumina-18S-*, Pick_closed-reference_OTUs-SILVA-Illumina-18S-*
+            • **ITS (Fungi):** Deblur_2021.09-Illumina-ITS-*, Pick_closed-reference_OTUs-*-ITS-*
+            • **Functional:** Woltka-KEGG-*, Woltka-per-genome-*
+            """
+            st.markdown(contexts_info)
+        
+        st.info("""
+        **Quick Tips:**
+        • Use `redbiom summarize contexts` to see all contexts
+        • Deblur contexts are generally more accurate
+        • Check sample counts before analysis
         """)
+        
+        # Add a context search helper
+        context_search = st.text_input("🔍 Search contexts:", placeholder="e.g., 16S, V4, Illumina")
+        if context_search:
+            # Simple context filtering based on search term
+            st.markdown("**Matching contexts:**")
+            st.code(f"redbiom summarize contexts | grep -i '{context_search}'", language='bash')
     
     # Command display and execution section
     if st.session_state.generated_command:
@@ -489,8 +627,24 @@ def main():
         
         with col2:
             if st.button("📋 Copy Command"):
-                st.code(edited_command)
-                st.success("Command displayed above for copying!")
+                # Create a copy-friendly display
+                st.markdown("**Command to copy:**")
+                st.code(edited_command, language='bash')
+                st.success("✨ Command ready to copy!")
+                
+            if st.button("💾 Save Output", help="Save the last command output"):
+                if st.session_state.command_outputs:
+                    last_output = st.session_state.command_outputs[-1]
+                    if last_output['success'] and last_output['stdout']:
+                        # Create download button
+                        st.download_button(
+                            label="📥 Download Output",
+                            data=last_output['stdout'],
+                            file_name=f"redbiom_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                            mime="text/plain"
+                        )
+                    else:
+                        st.warning("No successful output to save")
         
         # Display execution results
         if st.session_state.command_outputs:
@@ -507,12 +661,7 @@ def main():
                         st.code(result['command'], language='bash')
                         
                         if result['stdout']:
-                            st.text_area(
-                                "Output:", 
-                                result['stdout'], 
-                                height=200,
-                                key=f"output_{len(st.session_state.command_outputs) - i}"
-                            )
+                            format_and_display_output(result['stdout'], f"output_{len(st.session_state.command_outputs) - i}")
                         else:
                             st.info("Command executed successfully with no output")
                     else:
@@ -520,12 +669,8 @@ def main():
                         st.code(result['command'], language='bash')
                         
                         if result['stderr']:
-                            st.text_area(
-                                "Error:", 
-                                result['stderr'], 
-                                height=150,
-                                key=f"error_{len(st.session_state.command_outputs) - i}"
-                            )
+                            st.error("**Error Details:**")
+                            st.code(result['stderr'], language='text')
 
     # Footer
     st.markdown("---")
