@@ -150,7 +150,7 @@ Common commands:
             - `--md5`: *(bool)* `"Use MD5 for features and save original mapping to TSV."`
         - Example:
             ```
-            redbiom fetch qiita-study --study-id 123 --context <context> --output-basename my_study --remove-blanks --md5 True
+            redbiom fetch qiita-study --study-id <study-id> --context <context> --output-basename my_study --remove-blanks --md5 True
             ```
 
 3. summarize
