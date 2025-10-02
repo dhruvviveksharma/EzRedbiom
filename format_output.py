@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+
 def format_and_display_output(output, key_suffix):
     """Format and display command output in a more readable way"""
     
