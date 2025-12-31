@@ -1,0 +1,292 @@
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "search_features",
+        "description": "Get samples containing specified features",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "context": {
+              "type": "string",
+              "description": "The context to search within (REQUIRED). Available: Woltka-per-genome-WoLr2-3ab352"
+            },
+            "features": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Feature IDs to search for"
+            },
+            "exact": {
+              "type": "boolean",
+              "description": "All found samples must contain all specified features",
+              "default": false
+            },
+            "min_count": {
+              "type": "integer",
+              "description": "Minimum number of times the feature was observed",
+              "default": 1
+            }
+          },
+          "required": ["context", "features"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_samples",
+        "description": "Get features present in specified samples",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "context": {
+              "type": "string",
+              "description": "The context to search within (REQUIRED)"
+            },
+            "samples": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Sample IDs to search for"
+            },
+            "exact": {
+              "type": "boolean",
+              "description": "All found features must be present in all specified samples",
+              "default": false
+            },
+            "min_count": {
+              "type": "integer",
+              "description": "Minimum number of times the feature was observed",
+              "default": 1
+            }
+          },
+          "required": ["context", "samples"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_metadata",
+        "description": "Search metadata values or categories using NLP-based queries. Use 'where' for value queries, '&' for AND, '|' for OR, '-' for NOT",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search expression (e.g., 'where antibiotics & infant' or 'where age_days < 30')"
+            },
+            "categories": {
+              "type": "boolean",
+              "description": "Search for metadata categories instead of values",
+              "default": false
+            }
+          },
+          "required": ["query"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_taxon",
+        "description": "Find features associated with a given taxon",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "context": {
+              "type": "string",
+              "description": "The context to search within (REQUIRED)"
+            },
+            "taxon": {
+              "type": "string",
+              "description": "Taxon to search for (e.g., 'Bacteroides')"
+            }
+          },
+          "required": ["context", "taxon"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_sample_metadata",
+        "description": "Retrieve sample metadata and save to a file",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "output": {
+              "type": "string",
+              "description": "Filepath to write to (REQUIRED, e.g., 'metadata.tsv')"
+            },
+            "context": {
+              "type": "string",
+              "description": "The context to search within (optional)"
+            },
+            "samples": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Sample IDs to fetch metadata for"
+            },
+            "all_columns": {
+              "type": "boolean",
+              "description": "Include all metadata columns",
+              "default": false
+            },
+            "resolve_ambiguities": {
+              "type": "boolean",
+              "description": "Output unambiguous identifiers only",
+              "default": false
+            },
+            "tagged": {
+              "type": "boolean",
+              "description": "Obtain tag-specific metadata",
+              "default": false
+            },
+            "force_categories": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Force output to include specific metadata variables"
+            }
+          },
+          "required": ["output"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_features",
+        "description": "Fetch sample data containing given features and save to BIOM file",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "output": {
+              "type": "string",
+              "description": "Filepath to write to (REQUIRED, e.g., 'output.biom')"
+            },
+            "context": {
+              "type": "string",
+              "description": "The context to search within (REQUIRED)"
+            },
+            "features": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Features to fetch"
+            },
+            "exact": {
+              "type": "boolean",
+              "description": "All found samples must contain all specified features",
+              "default": false
+            },
+            "md5": {
+              "type": "boolean",
+              "description": "Use MD5 for features",
+              "default": false
+            },
+            "resolve_ambiguities": {
+              "type": "string",
+              "enum": ["merge", "most-reads", "none"],
+              "description": "How to resolve sample ambiguities",
+              "default": "none"
+            },
+            "fetch_taxonomy": {
+              "type": "boolean",
+              "description": "Resolve taxonomy on fetch (slower)",
+              "default": false
+            }
+          },
+          "required": ["output", "context", "features"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_samples",
+        "description": "Fetch sample data and save to BIOM file",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "output": {
+              "type": "string",
+              "description": "Filepath to write to (REQUIRED, e.g., 'samples.biom')"
+            },
+            "context": {
+              "type": "string",
+              "description": "The context to search within (REQUIRED)"
+            },
+            "samples": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Sample IDs to fetch"
+            },
+            "md5": {
+              "type": "boolean",
+              "description": "Use MD5 for features",
+              "default": false
+            },
+            "resolve_ambiguities": {
+              "type": "string",
+              "enum": ["merge", "most-reads", "none"],
+              "description": "How to resolve sample ambiguities",
+              "default": "none"
+            },
+            "fetch_taxonomy": {
+              "type": "boolean",
+              "description": "Resolve taxonomy on fetch",
+              "default": false
+            }
+          },
+          "required": ["output", "context", "samples"]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_qiita_study",
+        "description": "Fetch all data from a Qiita study",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "study_id": {
+              "type": "integer",
+              "description": "The Qiita study ID to fetch (REQUIRED)"
+            },
+            "context": {
+              "type": "string",
+              "description": "The context to fetch from (REQUIRED)"
+            },
+            "output_basename": {
+              "type": "string",
+              "description": "Base filename for outputs (REQUIRED, e.g., 'my_study')"
+            },
+            "resolve_ambiguities": {
+              "type": "string",
+              "enum": ["merge", "most-reads", "none"],
+              "description": "How to resolve sample ambiguities",
+              "default": "none"
+            },
+            "fetch_taxonomy": {
+              "type": "boolean",
+              "description": "Resolve taxonomy on fetch",
+              "default": false
+            },
+            "remove_blanks": {
+              "type": "boolean",
+              "description": "Remove samples with 'blank' in their name",
+              "default": false
+            },
+            "md5": {
+              "type": "boolean",
+              "description": "Use MD5 for features",
+              "default": false
+            }
+          },
+          "required": ["study_id", "context", "output_basename"]
+        }
+      }
+    }
+  ]
+}
